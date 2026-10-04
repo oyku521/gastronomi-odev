@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GastroSelect - Akıllı Tarif Önerici</title>
+  <style>
+    :root {
+      --primary: #d9534f;
+      --secondary: #f0ad4e;
+      --bg: #f8f9fa;
+      --text: #333;
+      --card-bg: #ffffff;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background-color: var(--primary);
+      color: white;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 2.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    header p {
+      margin: 5px 0 0;
+      font-weight: 300;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+    .search-box {
+      background: var(--card-bg);
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      margin-bottom: 30px;
+    }
+    .search-box h3 {
+      margin-top: 0;
+      color: var(--primary);
+    }
+    .ingredients-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 10px;
+      margin: 15px 0;
+    }
+    .ingredient-option {
+      background: #f1f3f5;
+      padding: 8px 12px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+    .ingredient-option:hover {
+      background: #e9ecef;
+    }
+    .ingredient-option input {
+      cursor: pointer;
+    }
+    button.btn-search {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 12px 25px;
+      font-size: 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      width: 100%;
+      font-weight: bold;
+      transition: background 0.2s;
+      margin-top: 10px;
+    }
+    button.btn-search:hover {
+      background: #c9302c;
+    }
+    .results {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .recipe-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+      display: flex;
+      flex-direction: column;
+      border-top: 4px solid var(--secondary);
+    }
+    .recipe-card-body {
+      padding: 20px;
+      flex-grow: 1;
+    }
+    .recipe-card h4 {
+      margin: 0 0 10px;
+      color: #2c3e50;
+      font-size: 1.2rem;
+    }
+    .tag {
+      display: inline-block;
+      background: #e8f5e9;
+      color: #2e7d32;
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      font-weight: bold;
+    }
+    .recipe-card ul {
+      padding-left: 20px;
+      margin: 10px 0;
+      font-size: 0.9rem;
+      color: #555;
+    }
+    .no-result {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 40px;
+      color: #777;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🍳 GastroSelect</h1>
+    <p>Akıllı Mutfak Asistanı - Malzemenizi Seçin, Tarifinizi Bulun</p>
+  </header>
+
+  <div class="container">
+    <div class="search-box">
+      <h3>Dolabınızda / Mutfağınızda Hangi Malzemeler Var?</h3>
+      <p style="font-size: 0.9rem; color: #666;">Aşağıdan elinizdeki malzemeleri işaretleyin:</p>
+      
+      <div class="ingredients-grid" id="ingredientsContainer"></div>
+      
+      <button class="btn-search" onclick="filterRecipes()">Uygun Tariflerimi Göster</button>
+    </div>
+
+    <h3 style="color: #444;">Önerilen Yemek Tarifleriniz</h3>
+    <div class="results" id="recipesResult"></div>
+  </div>
+
+  <script>
+    const availableIngredients = [
+      "Yumurta", "Un", "Süt", "Peynir", "Domates", "Biber", "Soğan", "Sarımsak", 
+      "Kıyma", "Tavuk", "Patates", "Pirinç", "Makarna", "Yoğurt", "Zeytinyağı", 
+      "Salça", "Tereyağı", "Nohut", "Mercimek", "Ispanak", "Mantar", "Patlıcan"
+    ];
+
+    // İlk açılışta seçili gelecek varsayılan malzemeler
+    const defaultSelected = ["Yumurta", "Domates", "Biber", "Zeytinyağı"];
+
+    const recipes = [
+      { name: "Menemen", ingredients: ["Yumurta", "Domates", "Biber", "Zeytinyağı"] },
+      { name: "Fırında Patates", ingredients: ["Patates", "Zeytinyağı", "Sarımsak"] },
+      { name: "Tavuklu Sote", ingredients: ["Tavuk", "Biber", "Soğan", "Domates"] },
+      { name: "Karnıyarık", ingredients: ["Patlıcan", "Kıyma", "Soğan", "Domates", "Salça"] },
+      { name: "Mercimek Çorbası", ingredients: ["Mercimek", "Soğan", "Un", "Tereyağı", "Salça"] },
+      { name: "Peynirli Omlet", ingredients: ["Yumurta", "Peynir", "Tereyağı"] },
+      { name: "Patates Kızartması", ingredients: ["Patates", "Zeytinyağı"] },
+      { name: "Domates Çorbası", ingredients: ["Domates", "Un", "Süt", "Tereyağı"] },
+      { name: "Sade Makarna", ingredients: ["Makarna", "Tereyağı"] },
+      { name: "Salçalı Makarna", ingredients: ["Makarna", "Salça", "Zeytinyağı"] },
+      { name: "Peynirli Makarna", ingredients: ["Makarna", "Peynir", "Tereyağı"] },
+      { name: "Pirinç Pilavı", ingredients: ["Pirinç", "Tereyağı"] },
+      { name: "Tavuklu Pilav", ingredients: ["Pirinç", "Tavuk", "Tereyağı"] },
+      { name: "Mantar Sote", ingredients: ["Mantar", "Soğan", "Biber", "Zeytinyağı"] },
+      { name: "Ispanak Yemeği", ingredients: ["Ispanak", "Soğan", "Pirinç", "Salça"] },
+      { name: "Nohut Yemeği", ingredients: ["Nohut", "Soğan", "Salça", "Zeytinyağı"] },
+      { name: "Köfte", ingredients: ["Kıyma", "Soğan", "Yumurta", "Un"] },
+      { name: "Fırın Patlıcan", ingredients: ["Patlıcan", "Zeytinyağı", "Sarımsak"] },
+      { name: "Tavuk Çorbası", ingredients: ["Tavuk", "Un", "Sarımsak"] },
+      { name: "Yoğurtlu Çorba", ingredients: ["Yoğurt", "Pirinç", "Un", "Yumurta"] },
+      { name: "Kıymalı Yumurta", ingredients: ["Kıyma", "Yumurta", "Soğan"] },
+      { name: "Mantar Çorbası", ingredients: ["Mantar", "Un", "Süt", "Tereyağı"] },
+      { name: "Yoğurtlu Makarna", ingredients: ["Makarna", "Yoğurt", "Sarımsak"] },
+      { name: "Patates Püresi", ingredients: ["Patates", "Süt", "Tereyağı"] },
+      { name: "Kıymalı Makarna", ingredients: ["Makarna", "Kıyma", "Soğan", "Salça"] },
+      { name: "Patatesli Omlet", ingredients: ["Patates", "Yumurta", "Zeytinyağı"] },
+      { name: "Domates Soslu Köfte", ingredients: ["Kıyma", "Domates", "Soğan", "Salça"] },
+      { name: "Sarımsaklı Yoğurtlu Patlıcan", ingredients: ["Patlıcan", "Yoğurt", "Sarımsak"] },
+      { name: "Tavuklu Mantar Sote", ingredients: ["Tavuk", "Mantar", "Soğan", "Biber"] },
+      { name: "Kıymalı Patates", ingredients: ["Patates", "Kıyma", "Soğan", "Salça"] },
+      { name: "Krep", ingredients: ["Un", "Süt", "Yumurta"] },
+      { name: "Peynirli Börek", ingredients: ["Un", "Peynir", "Yumurta", "Süt"] },
+      { name: "Ispanaklı Börek", ingredients: ["Un", "Ispanak", "Soğan", "Yumurta"] },
+      { name: "Yoğurtlu Ispanak", ingredients: ["Ispanak", "Yoğurt", "Sarımsak"] },
+      { name: "Mantar Fırın", ingredients: ["Mantar", "Peynir", "Tereyağı"] },
+      { name: "Tavuk Külbastı", ingredients: ["Tavuk", "Zeytinyağı", "Sarımsak"] },
+      { name: "Sebzeli Pilav", ingredients: ["Pirinç", "Biber", "Domates", "Zeytinyağı"] },
+      { name: "Kıymalı Ispanak", ingredients: ["Ispanak", "Kıyma", "Soğan", "Salça"] },
+      { name: "Nohutlu Pilav", ingredients: ["Pirinç", "Nohut", "Tereyağı"] },
+      { name: "Şakşuka", ingredients: ["Patlıcan", "Biber", "Domates", "Sarımsak"] },
+      { name: "Patates Çorbası", ingredients: ["Patates", "Soğan", "Süt", "Tereyağı"] },
+      { name: "Fırında Tavuk Patates", ingredients: ["Tavuk", "Patates", "Salça", "Zeytinyağı"] },
+      { name: "Tavuklu Salata", ingredients: ["Tavuk", "Domates", "Biber", "Zeytinyağı"] },
+      { name: "Mantar Omlet", ingredients: ["Yumurta", "Mantar", "Tereyağı"] },
+      { name: "Sarımsaklı Sos", ingredients: ["Un", "Sarımsak", "Tereyağı"] },
+      { name: "Kıymalı Biber Dolması", ingredients: ["Biber", "Kıyma", "Pirinç", "Soğan", "Salça"] },
+      { name: "Yumurta Sote", ingredients: ["Yumurta", "Biber", "Salça"] },
+      { name: "Yoğurtlu Patates Salatası", ingredients: ["Patates", "Yoğurt", "Sarımsak"] },
+      { name: "Tavuklu Pirinç", ingredients: ["Tavuk", "Pirinç", "Salça"] },
+      { name: "Çılbır", ingredients: ["Yumurta", "Yoğurt", "Sarımsak", "Tereyağı"] }
+    ];
+
+    // Checkbox'ları ekrana bas
+    const container = document.getElementById("ingredientsContainer");
+    availableIngredients.forEach(ing => {
+      const isChecked = defaultSelected.includes(ing) ? "checked" : "";
+      container.innerHTML += `
+        <label class="ingredient-option">
+          <input type="checkbox" value="${ing}" ${isChecked} onchange="filterRecipes()"> ${ing}
+        </label>
+      `;
+    });
+
+    function filterRecipes() {
+      const selectedNodes = document.querySelectorAll('#ingredientsContainer input:checked');
+      const selected = Array.from(selectedNodes).map(node => node.value);
+      
+      const resultsContainer = document.getElementById("recipesResult");
+      resultsContainer.innerHTML = "";
+
+      if (selected.length === 0) {
+        resultsContainer.innerHTML = '<div class="no-result">Lütfen yukarıdan en az bir malzeme seçin.</div>';
+        return;
+      }
+
+      // Seçilen malzemelerden en az birini içeren tarifleri filtrele
+      const matched = recipes.filter(recipe => {
+        return recipe.ingredients.some(ing => selected.includes(ing));
+      });
+
+      if (matched.length === 0) {
+        resultsContainer.innerHTML = '<div class="no-result">Seçtiğiniz malzemelerle eşleşen tarif bulunamadı.</div>';
+        return;
+      }
+
+      matched.forEach(recipe => {
+        resultsContainer.innerHTML += `
+          <div class="recipe-card">
+            <div class="recipe-card-body">
+              <span class="tag">Önerilen Tarif</span>
+              <h4>${recipe.name}</h4>
+              <p style="font-size: 0.85rem; color: #777; margin: 0;">Malzemeler:</p>
+              <ul>
+                ${recipe.ingredients.map(i => {
+                  const style = selected.includes(i) ? "color: green; font-weight: bold;" : "color: #888;";
+                  return `<li style="${style}">${i}${selected.includes(i) ? '✓' : ''}</li>`;
+                }).join('')}
+              </ul>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    // Sayfa yüklenince çalıştır
+    filterRecipes();
+  </script>
+</body>
+</html>
